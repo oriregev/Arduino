@@ -283,6 +283,7 @@ uint8_t DhcpClass::parseDHCPResponse(unsigned long responseTimeout, uint32_t& tr
     RIP_MSG_FIXED fixedMsg;
     _dhcpUdpSocket.read((uint8_t*)&fixedMsg, sizeof(RIP_MSG_FIXED));
 
+  
     if(fixedMsg.op == DHCP_BOOTREPLY && _dhcpUdpSocket.remotePort() == DHCP_SERVER_PORT)
     {
         transactionId = ntohl(fixedMsg.xid);
@@ -303,12 +304,12 @@ uint8_t DhcpClass::parseDHCPResponse(unsigned long responseTimeout, uint32_t& tr
             _dhcpUdpSocket.read(); // we don't care about the returned byte
         }
 
-        while (_dhcpUdpSocket.available() > 0)
+        while (_dhcpUdpSocket.available() > 0) 
         {
 #ifdef VERILITE_WDT_MODS
             wdt_reset (); // watchdog reset
-#endif
-            switch (_dhcpUdpSocket.read())
+#endif            
+            switch (_dhcpUdpSocket.read()) 
             {
                 case endOption :
                     break;

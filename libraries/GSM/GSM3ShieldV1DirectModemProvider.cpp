@@ -126,6 +126,7 @@ String GSM3ShieldV1DirectModemProvider::writeModemCommand(String ATcommand, int 
   wdt_reset (); // watchdog reset
 #endif
 
+  
   //Enter debug mode.
   connect();
   //Send the AT command.
