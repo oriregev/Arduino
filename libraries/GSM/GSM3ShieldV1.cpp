@@ -8,7 +8,7 @@ This file is part of the GSM3 communications library for Arduino
 -- TCP/IP connections
 -- HTTP basic clients
 
-This library has been developed by Telefónica Digital - PDI -
+This library has been developed by Telefï¿½nica Digital - PDI -
 - Physical Internet Lab, as part as its collaboration with
 Arduino and the Open Hardware Community. 
 
@@ -34,6 +34,10 @@ https://github.com/BlueVia/Official-Arduino
 #include <GSM3ShieldV1.h>
 #include <HardwareSerial.h>
 #include <Arduino.h>
+
+#ifdef VERILITE_WDT_MODS
+#include <avr/wdt.h>
+#endif
 
 #define __RESETPIN__ 7
 #define __TOUTLOCALCOMS__ 500
@@ -69,7 +73,15 @@ void GSM3ShieldV1::manageResponse(byte from, byte to)
 //Function for 2 sec delay inside an interruption.
 void GSM3ShieldV1::delayInsideInterrupt2seg()
 {
-	for (int k=0;k<40;k++)  theGSM3ShieldV1ModemCore.gss.tunedDelay(50000); 
+	for (int k=0;k<40;k++)
+#ifdef VERILITE_WDT_MODS
+    {
+        wdt_reset(); // watchdog reset
+        theGSM3ShieldV1ModemCore.gss.tunedDelay(50000);
+    }
+#else
+        theGSM3ShieldV1ModemCore.gss.tunedDelay(50000);
+#endif
 } 
 
 ///////////////////////////////////////////////////////UNSOLICITED RESULT CODE (URC) FUNCTIONS///////////////////////////////////////////////////////////////////

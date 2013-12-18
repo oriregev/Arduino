@@ -8,7 +8,7 @@ This file is part of the GSM3 communications library for Arduino
 -- TCP/IP connections
 -- HTTP basic clients
 
-This library has been developed by Telefónica Digital - PDI -
+This library has been developed by Telefï¿½nica Digital - PDI -
 - Physical Internet Lab, as part as its collaboration with
 Arduino and the Open Hardware Community. 
 
@@ -35,6 +35,10 @@ https://github.com/BlueVia/Official-Arduino
 #include <GSM3ShieldV1ModemCore.h>
 #include <HardwareSerial.h>
 #include <Arduino.h>
+
+#ifdef VERILITE_WDT_MODS
+#include <avr/wdt.h>
+#endif
 
 #define __RESETPIN__ 7
 
@@ -117,7 +121,11 @@ String GSM3ShieldV1DirectModemProvider::writeModemCommand(String ATcommand, int 
 	
   // Flush other texts
   flush();
-  
+
+#ifdef VERILITE_WDT_MODS
+  wdt_reset (); // watchdog reset
+#endif
+
   //Enter debug mode.
   connect();
   //Send the AT command.
@@ -132,6 +140,9 @@ String GSM3ShieldV1DirectModemProvider::writeModemCommand(String ATcommand, int 
 
   while (available())
   {
+#ifdef VERILITE_WDT_MODS
+      wdt_reset(); // watchdog reset
+#endif
     char c = read();
     result += c;
   }

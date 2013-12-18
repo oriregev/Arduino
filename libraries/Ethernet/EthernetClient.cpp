@@ -12,6 +12,11 @@ extern "C" {
 #include "EthernetServer.h"
 #include "Dns.h"
 
+#ifdef VERILITE_WDT_MODS
+// watchdog
+#include <avr/wdt.h>
+#endif
+
 uint16_t EthernetClient::_srcport = 1024;
 
 EthernetClient::EthernetClient() : _sock(MAX_SOCK_NUM) {
@@ -61,6 +66,9 @@ int EthernetClient::connect(IPAddress ip, uint16_t port) {
 
   while (status() != SnSR::ESTABLISHED) {
     delay(1);
+#ifdef VERILITE_WDT_MODS
+    wdt_reset(); // watchdog reset
+#endif
     if (status() == SnSR::CLOSED) {
       _sock = MAX_SOCK_NUM;
       return 0;
@@ -120,8 +128,12 @@ int EthernetClient::peek() {
 }
 
 void EthernetClient::flush() {
-  while (available())
-    read();
+  while (available()) {
+#ifdef VERILITE_WDT_MODS
+      wdt_reset(); // watchdog reset
+#endif
+      read();
+  }
 }
 
 void EthernetClient::stop() {
@@ -133,8 +145,12 @@ void EthernetClient::stop() {
   unsigned long start = millis();
 
   // wait a second for the connection to close
-  while (status() != SnSR::CLOSED && millis() - start < 1000)
-    delay(1);
+  while (status() != SnSR::CLOSED && millis() - start < 1000) {
+      delay(1);
+#ifdef VERILITE_WDT_MODS
+      wdt_reset(); // watchdog reset
+#endif
+  }
 
   // if it hasn't closed, close it forcefully
   if (status() != SnSR::CLOSED)
@@ -153,6 +169,9 @@ uint8_t EthernetClient::connected() {
 }
 
 uint8_t EthernetClient::status() {
+#ifdef VERILITE_WDT_MODS
+  wdt_reset (); // watchdog reset
+#endif
   if (_sock == MAX_SOCK_NUM) return SnSR::CLOSED;
   return W5100.readSnSR(_sock);
 }

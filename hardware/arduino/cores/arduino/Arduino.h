@@ -15,6 +15,8 @@
 extern "C"{
 #endif
 
+#define VERILITE_WDT_MODS
+
 #define HIGH 0x1
 #define LOW  0x0
 
