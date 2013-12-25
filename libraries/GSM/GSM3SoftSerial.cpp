@@ -8,7 +8,7 @@ This file is part of the GSM3 communications library for Arduino
 -- TCP/IP connections
 -- HTTP basic clients
 
-This library has been developed by Telefónica Digital - PDI -
+This library has been developed by Telefï¿½nica Digital - PDI -
 - Physical Internet Lab, as part as its collaboration with
 Arduino and the Open Hardware Community. 
 
@@ -44,7 +44,7 @@ https://github.com/BlueVia/Official-Arduino
 #define __RXINT__ 3
 #elif defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
 #define __TXPIN__ 3
-#define __RXPIN__ 10
+#define __RXPIN__ 11
 #define __RXINT__ 4
 #elif defined(__AVR_ATmega32U4__)
 #define __TXPIN__ 3
