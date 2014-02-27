@@ -11,6 +11,10 @@ extern "C" {
 #include "WiFiServer.h"
 #include "server_drv.h"
 
+#ifdef VERILITE_WDT_MODS
+// watchdog
+#include <avr/wdt.h>
+#endif
 
 uint16_t WiFiClient::_srcport = 1024;
 
@@ -39,8 +43,12 @@ int WiFiClient::connect(IPAddress ip, uint16_t port) {
     	unsigned long start = millis();
 
     	// wait 4 second for the connection to close
-    	while (!connected() && millis() - start < 10000)
-    		delay(1);
+    	while (!connected() && millis() - start < 10000) {
+            delay(1);
+#ifdef VERILITE_WDT_MODS
+    wdt_reset(); // watchdog reset
+#endif
+        }
 
     	if (!connected())
        	{
@@ -119,8 +127,12 @@ int WiFiClient::peek() {
 }
 
 void WiFiClient::flush() {
-  while (available())
-    read();
+  while (available()) {
+#ifdef VERILITE_WDT_MODS
+      wdt_reset(); // watchdog reset
+#endif
+      read();
+  }
 }
 
 void WiFiClient::stop() {
@@ -133,8 +145,12 @@ void WiFiClient::stop() {
 
   int count = 0;
   // wait maximum 5 secs for the connection to close
-  while (status() != CLOSED && ++count < 50)
-    delay(100);
+  while (status() != CLOSED && ++count < 50) {
+      delay(100);
+#ifdef VERILITE_WDT_MODS
+      wdt_reset(); // watchdog reset
+#endif
+  }
 
   _sock = 255;
 }
@@ -157,6 +173,9 @@ uint8_t WiFiClient::status() {
     if (_sock == 255) {
     return CLOSED;
   } else {
+#ifdef VERILITE_WDT_MODS
+    wdt_reset(); // watchdog reset
+#endif
     return ServerDrv::getClientState(_sock);
   }
 }
