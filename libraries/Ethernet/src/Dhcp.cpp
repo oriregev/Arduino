@@ -9,6 +9,11 @@
 #include "Arduino.h"
 #include "utility/util.h"
 
+#ifdef VERILITE_WDT_MODS
+// watchdog
+#include <avr/wdt.h>
+#endif
+
 int DhcpClass::beginWithDHCP(uint8_t *mac, unsigned long timeout, unsigned long responseTimeout)
 {
     _dhcpLeaseTime=0;
@@ -35,6 +40,9 @@ void DhcpClass::reset_DHCP_lease(){
 //return:0 on error, 1 if request is sent and response is received
 int DhcpClass::request_DHCP_lease(){
     
+#ifdef VERILITE_WDT_MODS
+    wdt_reset (); // watchdog reset
+#endif
     uint8_t messageType = 0;
   
     
@@ -58,6 +66,9 @@ int DhcpClass::request_DHCP_lease(){
     
     while(_dhcp_state != STATE_DHCP_LEASED)
     {
+#ifdef VERILITE_WDT_MODS
+        wdt_reset (); // watchdog reset
+#endif
         if(_dhcp_state == STATE_DHCP_START)
         {
             _dhcpTransactionId++;
@@ -259,6 +270,9 @@ uint8_t DhcpClass::parseDHCPResponse(unsigned long responseTimeout, uint32_t& tr
 
     while(_dhcpUdpSocket.parsePacket() <= 0)
     {
+#ifdef VERILITE_WDT_MODS
+        wdt_reset (); // watchdog reset
+#endif
         if((millis() - startTime) > responseTimeout)
         {
             return 255;
@@ -291,7 +305,10 @@ uint8_t DhcpClass::parseDHCPResponse(unsigned long responseTimeout, uint32_t& tr
 
         while (_dhcpUdpSocket.available() > 0) 
         {
-            switch (_dhcpUdpSocket.read()) 
+#ifdef VERILITE_WDT_MODS
+            wdt_reset (); // watchdog reset
+#endif
+            switch (_dhcpUdpSocket.read())
             {
                 case endOption :
                     break;

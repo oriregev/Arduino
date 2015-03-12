@@ -35,6 +35,8 @@
 extern "C"{
 #endif
 
+#define VERILITE_WDT_MODS
+
 void yield(void);
 
 #define HIGH 0x1

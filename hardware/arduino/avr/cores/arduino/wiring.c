@@ -24,6 +24,10 @@
 
 #include "wiring_private.h"
 
+#ifdef VERILITE_WDT_MODS
+#include <avr/wdt.h>
+#endif
+
 // the prescaler is set so that timer0 ticks every 64 clock cycles, and the
 // the overflow handler is called every 256 ticks.
 #define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(64 * 256))
@@ -106,6 +110,29 @@ unsigned long micros() {
 	return ((m << 8) + t) * (64 / clockCyclesPerMicrosecond());
 }
 
+#ifdef VERILITE_WDT_MODS
+void wdt_delay_internal(unsigned long ms)
+{
+	uint16_t start = (uint16_t)micros();
+
+	while (ms > 0) {
+		yield();
+		if (((uint16_t)micros() - start) >= 1000) {
+			ms--;
+			start += 1000;
+		}
+	}
+}
+void delay(unsigned long ms) {
+    unsigned long i;
+    for (i=0; i < (ms/100); i++) {
+        wdt_reset();
+        wdt_delay_internal(100);
+    }
+    wdt_reset();
+    wdt_delay_internal(ms % 100);
+}
+#else
 void delay(unsigned long ms)
 {
 	uint16_t start = (uint16_t)micros();
@@ -118,6 +145,8 @@ void delay(unsigned long ms)
 		}
 	}
 }
+#endif
+
 
 /* Delay for the given number of microseconds.  Assumes a 8 or 16 MHz clock. */
 void delayMicroseconds(unsigned int us)

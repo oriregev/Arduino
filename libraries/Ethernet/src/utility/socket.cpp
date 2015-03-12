@@ -3,6 +3,11 @@
 
 static uint16_t local_port;
 
+#ifdef VERILITE_WDT_MODS
+// watchdog
+#include <avr/wdt.h>
+#endif
+
 /**
  * @brief	This Socket function initialize the channel in perticular mode, and set the port and wait for W5100 done it.
  * @return 	1 for success else 0.
@@ -136,8 +141,11 @@ uint16_t send(SOCKET s, const uint8_t * buf, uint16_t len)
       ret = 0; 
       break;
     }
+#ifdef VERILITE_WDT_MODS
+    wdt_reset (); // watchdog reset
+#endif
     yield();
-  } 
+  }
   while (freesize < ret);
 
   // copy data
@@ -156,6 +164,9 @@ uint16_t send(SOCKET s, const uint8_t * buf, uint16_t len)
       return 0;
     }
     SPI.endTransaction();
+#ifdef VERILITE_WDT_MODS
+    wdt_reset (); // watchdog reset
+#endif
     yield();
     SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
   }
@@ -273,6 +284,9 @@ uint16_t sendto(SOCKET s, const uint8_t *buf, uint16_t len, uint8_t *addr, uint1
         return 0;
       }
       SPI.endTransaction();
+#ifdef VERILITE_WDT_MODS
+      wdt_reset (); // watchdog reset
+#endif
       yield();
       SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
     }
@@ -364,6 +378,9 @@ uint16_t recvfrom(SOCKET s, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t 
  */
 void flush(SOCKET s) {
   // TODO
+//#ifdef VERILITE_WDT_MODS
+//    wdt_reset(); // watchdog reset
+//#endif
 }
 
 uint16_t igmpsend(SOCKET s, const uint8_t * buf, uint16_t len)
@@ -393,6 +410,9 @@ uint16_t igmpsend(SOCKET s, const uint8_t * buf, uint16_t len)
       return 0;
     }
     SPI.endTransaction();
+#ifdef VERILITE_WDT_MODS
+    wdt_reset (); // watchdog reset
+#endif
     yield();
     SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
   }
@@ -455,6 +475,9 @@ int sendUDP(SOCKET s)
       return 0;
     }
     SPI.endTransaction();
+#ifdef VERILITE_WDT_MODS
+    wdt_reset (); // watchdog reset
+#endif
     yield();
     SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
   }

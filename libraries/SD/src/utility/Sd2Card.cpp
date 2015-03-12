@@ -20,6 +20,12 @@
 #define USE_SPI_LIB
 #include <Arduino.h>
 #include "Sd2Card.h"
+
+#ifdef VERILITE_WDT_MODS
+// watchdog
+#include <avr/wdt.h>
+#endif
+
 //------------------------------------------------------------------------------
 #ifndef SOFTWARE_SPI
 #ifdef USE_SPI_LIB
@@ -566,6 +572,9 @@ uint8_t Sd2Card::waitStartBlock(void) {
  * the value zero, false, is returned for failure.
  */
 uint8_t Sd2Card::writeBlock(uint32_t blockNumber, const uint8_t* src) {
+#ifdef VERILITE_WDT_MODS
+  wdt_reset(); // watchdog reset
+#endif
 #if SD_PROTECT_BLOCK_ZERO
   // don't allow write to first block
   if (blockNumber == 0) {

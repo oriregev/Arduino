@@ -12,6 +12,11 @@ extern "C" {
 #include "EthernetServer.h"
 #include "Dns.h"
 
+#ifdef VERILITE_WDT_MODS
+// watchdog
+#include <avr/wdt.h>
+#endif
+
 uint16_t EthernetClient::_srcport = 49152;      //Use IANA recommended ephemeral port range 49152-65535
 
 EthernetClient::EthernetClient() : _sock(MAX_SOCK_NUM) {
@@ -61,6 +66,9 @@ int EthernetClient::connect(IPAddress ip, uint16_t port) {
 
   while (status() != SnSR::ESTABLISHED) {
     delay(1);
+#ifdef VERILITE_WDT_MODS
+    wdt_reset(); // watchdog reset
+#endif
     if (status() == SnSR::CLOSED) {
       _sock = MAX_SOCK_NUM;
       return 0;
@@ -121,6 +129,9 @@ int EthernetClient::peek() {
 
 void EthernetClient::flush() {
   ::flush(_sock);
+//#ifdef VERILITE_WDT_MODS
+//    wdt_reset(); // watchdog reset
+//#endif
 }
 
 void EthernetClient::stop() {
@@ -132,8 +143,12 @@ void EthernetClient::stop() {
   unsigned long start = millis();
 
   // wait a second for the connection to close
-  while (status() != SnSR::CLOSED && millis() - start < 1000)
-    delay(1);
+  while (status() != SnSR::CLOSED && millis() - start < 1000) {
+      delay(1);
+#ifdef VERILITE_WDT_MODS
+      wdt_reset(); // watchdog reset
+#endif
+    }
 
   // if it hasn't closed, close it forcefully
   if (status() != SnSR::CLOSED)
@@ -152,6 +167,9 @@ uint8_t EthernetClient::connected() {
 }
 
 uint8_t EthernetClient::status() {
+#ifdef VERILITE_WDT_MODS
+  wdt_reset (); // watchdog reset
+#endif
   if (_sock == MAX_SOCK_NUM) return SnSR::CLOSED;
   return socketStatus(_sock);
 }
