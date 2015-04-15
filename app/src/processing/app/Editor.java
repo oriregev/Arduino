@@ -24,6 +24,9 @@ package processing.app;
 
 import cc.arduino.packages.MonitorFactory;
 
+import cc.arduino.view.*;
+import cc.arduino.view.Event;
+import cc.arduino.view.EventListener;
 import com.jcraft.jsch.JSchException;
 
 import jssc.SerialPortException;
@@ -944,15 +947,22 @@ public class Editor extends JFrame implements RunnerListener {
 
   class SerialMenuListener implements ActionListener {
 
+    private final Frame parent;
     private final String serialPort;
+    private final String warning;
 
-    public SerialMenuListener(String serialPort) {
+    public SerialMenuListener(Frame parent, String serialPort, String warning) {
+      this.parent = parent;
       this.serialPort = serialPort;
+      this.warning = warning;
     }
 
     public void actionPerformed(ActionEvent e) {
       selectSerialPort(serialPort);
       base.onBoardOrPortChange();
+      if (warning != null && !Preferences.getBoolean("uncertifiedBoardWarning_dontShowMeAgain")) {
+        SwingUtilities.invokeLater(new ShowUncertifiedBoardWarning(parent));
+      }
     }
 
   }
@@ -1034,7 +1044,7 @@ public class Editor extends JFrame implements RunnerListener {
       String label = port.getLabel();
 
       JCheckBoxMenuItem item = new JCheckBoxMenuItem(label, address.equals(selectedPort));
-      item.addActionListener(new SerialMenuListener(address));
+      item.addActionListener(new SerialMenuListener(this, address, port.getPrefs().get("warning")));
       serialMenu.add(item);
     }
 
@@ -1276,6 +1286,7 @@ public class Editor extends JFrame implements RunnerListener {
           }
           if (getSelectedText()!= null) find.setFindText( getSelectedText() );
           //new FindReplace(Editor.this).show();
+          find.setLocationRelativeTo(Editor.this);
           find.setVisible(true);
           //find.setVisible(true);
         }
@@ -1310,6 +1321,7 @@ public class Editor extends JFrame implements RunnerListener {
           if (find == null) {
             find = new FindReplace(Editor.this);
           }
+          find.setLocationRelativeTo(Editor.this);
           find.setFindText( getSelectedText() );
         }
       });
@@ -1365,6 +1377,7 @@ public class Editor extends JFrame implements RunnerListener {
     public void actionPerformed(ActionEvent e) {
       try {
         undo.undo();
+        sketch.setModified(true);
       } catch (CannotUndoException ex) {
         //System.out.println("Unable to undo: " + ex);
         //ex.printStackTrace();
@@ -1386,17 +1399,11 @@ public class Editor extends JFrame implements RunnerListener {
         undoItem.setEnabled(true);
         undoItem.setText(undo.getUndoPresentationName());
         putValue(Action.NAME, undo.getUndoPresentationName());
-        if (sketch != null) {
-          sketch.setModified(true);  // 0107
-        }
       } else {
         this.setEnabled(false);
         undoItem.setEnabled(false);
         undoItem.setText(_("Undo"));
         putValue(Action.NAME, "Undo");
-        if (sketch != null) {
-          sketch.setModified(false);  // 0107
-        }
       }
     }
   }
@@ -1411,6 +1418,7 @@ public class Editor extends JFrame implements RunnerListener {
     public void actionPerformed(ActionEvent e) {
       try {
         undo.redo();
+        sketch.setModified(true);
       } catch (CannotRedoException ex) {
         //System.out.println("Unable to redo: " + ex);
         //ex.printStackTrace();
@@ -1697,10 +1705,12 @@ public class Editor extends JFrame implements RunnerListener {
       document.addUndoableEditListener(new UndoableEditListener() {
         public void undoableEditHappened(UndoableEditEvent e) {
           if (compoundEdit != null) {
-            compoundEdit.addEdit(e.getEdit());
-
+            compoundEdit.addEdit(new CaretAwareUndoableEdit(e.getEdit(), textarea));
           } else if (undo != null) {
             undo.addEdit(new CaretAwareUndoableEdit(e.getEdit(), textarea));
+          }
+          if (compoundEdit != null || undo != null) {
+            sketch.setModified(true);
             undoAction.updateUndoState();
             redoAction.updateRedoState();
           }
@@ -2212,7 +2222,7 @@ public class Editor extends JFrame implements RunnerListener {
           // copy the sketch inside
           File properPdeFile = new File(properFolder, sketchFile.getName());
           try {
-            Base.copyFile(file, properPdeFile);
+            Base.copyFile(sketchFile, properPdeFile);
           } catch (IOException e) {
             Base.showWarning(_("Error"), _("Could not copy to a proper location."), e);
             return false;

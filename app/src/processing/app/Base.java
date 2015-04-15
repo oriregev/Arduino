@@ -22,23 +22,12 @@
 
 package processing.app;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.io.*;
-import java.util.*;
-import java.util.List;
-
-import javax.swing.*;
-
 import cc.arduino.packages.DiscoveryManager;
+import cc.arduino.view.SplashScreenHelper;
 import processing.app.debug.TargetBoard;
 import processing.app.debug.TargetPackage;
 import processing.app.debug.TargetPlatform;
-import processing.app.helpers.CommandlineParser;
-import processing.app.helpers.FileUtils;
-import processing.app.helpers.GUIUserNotifier;
-import processing.app.helpers.OSUtils;
-import processing.app.helpers.PreferencesMap;
+import processing.app.helpers.*;
 import processing.app.helpers.filefilters.OnlyDirs;
 import processing.app.helpers.filefilters.OnlyFilesWithExtension;
 import processing.app.javax.swing.filechooser.FileNameExtensionFilter;
@@ -48,6 +37,14 @@ import processing.app.packages.Library;
 import processing.app.packages.LibraryList;
 import processing.app.tools.MenuScroller;
 import processing.app.tools.ZipDeflater;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.util.*;
+import java.util.List;
+
 import static processing.app.I18n._;
 
 
@@ -60,6 +57,7 @@ import static processing.app.I18n._;
 public class Base {
 
   static private boolean commandLine;
+  public static SplashScreenHelper splashScreenHelper = new SplashScreenHelper(SplashScreen.getSplashScreen());
 
   // A single instance of the preferences window
   Preferences preferencesFrame;
@@ -88,6 +86,9 @@ public class Base {
   Editor activeEditor;
 
   static public void main(String args[]) throws Exception {
+    System.setProperty("awt.useSystemAAFontSettings", "on");
+    System.setProperty("swing.aatext", "true");
+
     BaseNoGui.initLogger();
     
     BaseNoGui.notifier = new GUIUserNotifier();
@@ -97,7 +98,9 @@ public class Base {
     BaseNoGui.initPortableFolder();
 
     BaseNoGui.initParameters(args);
-    
+
+    System.setProperty("swing.aatext", Preferences.get("editor.antialias", "true"));
+
     BaseNoGui.initVersion();
 
 //    if (System.getProperty("mrj.version") != null) {
@@ -220,8 +223,10 @@ public class Base {
       }
     }
 
+    splashScreenHelper.splashText(_("Initializing packages..."));
     BaseNoGui.initPackages();
-    
+    splashScreenHelper.splashText(_("Preparing boards..."));
+
     // Setup board-dependent variables.
     onBoardOrPortChange();
 
@@ -262,6 +267,7 @@ public class Base {
     Preferences.save();
 
       if (parser.isVerifyOrUploadMode()) {
+        splashScreenHelper.close();
         // Set verbosity for command line build
         Preferences.set("build.verbose", "" + parser.isDoVerboseBuild());
         Preferences.set("upload.verbose", "" + parser.isDoVerboseUpload());
@@ -289,6 +295,8 @@ public class Base {
         System.exit(0);
       }
       else if (parser.isGuiMode()) {
+        splashScreenHelper.splashText(_("Starting..."));
+
         // Check if there were previously opened sketches to be restored
         restoreSketches();
 
@@ -660,21 +668,30 @@ public class Base {
    */
   public void handleOpenPrompt() throws Exception {
     // get the frontmost window frame for placing file dialog
-    JFileChooser fd = new JFileChooser(Preferences.get("last.folder", getSketchbookFolder().getAbsolutePath()));
-    fd.setDialogTitle(_("Open an Arduino sketch..."));
-    fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
-    fd.setFileFilter(new FileNameExtensionFilter(_("Sketches (*.ino, *.pde)"), "ino", "pde"));
-
-    Dimension preferredSize = fd.getPreferredSize();
-    fd.setPreferredSize(new Dimension(preferredSize.width + 200, preferredSize.height + 200));
-
-    int returnVal = fd.showOpenDialog(activeEditor);
-
-    if (returnVal != JFileChooser.APPROVE_OPTION) {
-      return;
+    FileDialog fd = new FileDialog(activeEditor, _("Open an Arduino sketch..."), FileDialog.LOAD);
+    File lastFolder = new File(Preferences.get("last.folder", getSketchbookFolder().getAbsolutePath()));
+    if (lastFolder.exists() && lastFolder.isFile()) {
+      lastFolder = lastFolder.getParentFile();
     }
+    fd.setDirectory(lastFolder.getAbsolutePath());
 
-    File inputFile = fd.getSelectedFile();
+    // Only show .pde files as eligible bachelors
+    fd.setFilenameFilter(new FilenameFilter() {
+      public boolean accept(File dir, String name) {
+        return name.toLowerCase().endsWith(".ino")
+                || name.toLowerCase().endsWith(".pde");
+      }
+    });
+
+    fd.setVisible(true);
+
+    String directory = fd.getDirectory();
+    String filename = fd.getFile();
+
+    // User canceled selection
+    if (filename == null) return;
+
+    File inputFile = new File(directory, filename);
 
     Preferences.set("last.folder", inputFile.getAbsolutePath());
     handleOpen(inputFile);
