@@ -7,7 +7,7 @@
  created 8 Oct 2012
  by Cristian Maglie
 
- http://arduino.cc/en/Tutorial/MouseController
+ http://www.arduino.cc/en/Tutorial/MouseController
 
  This sample code is part of the public domain.
  */
@@ -78,15 +78,13 @@ void mouseReleased() {
   Serial.println();
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(9600);
   Serial.println("Program started");
   delay(200);
 }
 
-void loop()
-{
+void loop() {
   // Process USB tasks
   usb.Task();
 }

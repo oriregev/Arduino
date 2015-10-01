@@ -28,6 +28,7 @@
  */
 package processing.app.packages;
 
+import cc.arduino.Constants;
 import cc.arduino.contributions.libraries.ContributedLibrary;
 import cc.arduino.contributions.libraries.ContributedLibraryReference;
 import processing.app.helpers.FileUtils;
@@ -35,8 +36,9 @@ import processing.app.helpers.PreferencesMap;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -54,15 +56,7 @@ public class UserLibrary extends ContributedLibrary {
   private List<String> architectures;
   private List<String> types;
   private List<String> declaredTypes;
-
-  private static final List<String> MANDATORY_PROPERTIES = Arrays
-          .asList(new String[]{"name", "version", "author", "maintainer",
-                  "sentence", "paragraph", "url"});
-
-  private static final List<String> CATEGORIES = Arrays.asList(new String[]{
-          "Display", "Communication", "Signal Input/Output", "Sensors",
-          "Device Control", "Timing", "Data Storage", "Data Processing", "Other",
-          "Uncategorized"});
+  private boolean onGoingDevelopment;
 
   public static UserLibrary create(File libFolder) throws IOException {
     // Parse metadata
@@ -83,11 +77,10 @@ public class UserLibrary extends ContributedLibrary {
     // "arch" folder no longer supported
     File archFolder = new File(libFolder, "arch");
     if (archFolder.isDirectory())
-      throw new IOException("'arch' folder is no longer supported! See "
-              + "http://goo.gl/gfFJzU for more information");
+      throw new IOException("'arch' folder is no longer supported! See http://goo.gl/gfFJzU for more information");
 
     // Check mandatory properties
-    for (String p : MANDATORY_PROPERTIES)
+    for (String p : Constants.LIBRARY_MANDATORY_PROPERTIES)
       if (!properties.containsKey(p))
         throw new IOException("Missing '" + p + "' from library");
 
@@ -101,8 +94,7 @@ public class UserLibrary extends ContributedLibrary {
 
       File utilFolder = new File(libFolder, "utility");
       if (utilFolder.exists() && utilFolder.isDirectory()) {
-        throw new IOException(
-                "Library can't use both 'src' and 'utility' folders.");
+        throw new IOException("Library can't use both 'src' and 'utility' folders.");
       }
     } else {
       // Layout with source code on library's root and "utility" folders
@@ -110,11 +102,14 @@ public class UserLibrary extends ContributedLibrary {
     }
 
     // Warn if root folder contains development leftovers
-    for (File file : libFolder.listFiles()) {
-      if (file.isDirectory()) {
-        if (FileUtils.isSCCSOrHiddenFile(file)) {
+    File[] files = libFolder.listFiles();
+    if (files == null) {
+      throw new IOException("Unable to list files of library in " + libFolder);
+    }
+    for (File file : files) {
+      if (file.isDirectory() && FileUtils.isSCCSOrHiddenFile(file)) {
+        if (!FileUtils.isSCCSFolder(file) && FileUtils.isHiddenFile(file)) {
           System.out.println("WARNING: Spurious " + file.getName() + " folder in '" + properties.get("name") + "' library");
-          continue;
         }
       }
     }
@@ -123,17 +118,16 @@ public class UserLibrary extends ContributedLibrary {
     String architectures = properties.get("architectures");
     if (architectures == null)
       architectures = "*"; // defaults to "any"
-    List<String> archs = new ArrayList<String>();
+    List<String> archs = new ArrayList<>();
     for (String arch : architectures.split(","))
       archs.add(arch.trim());
 
     String category = properties.get("category");
     if (category == null)
       category = "Uncategorized";
-    if (!CATEGORIES.contains(category)) {
+    if (!Constants.LIBRARY_CATEGORIES.contains(category)) {
+      System.out.println("WARNING: Category '" + category + "' in library " + properties.get("name") + " is not valid. Setting to 'Uncategorized'");
       category = "Uncategorized";
-      System.out.println("WARNING: Category '" + category + "' in library " +
-              properties.get("name") + " is not valid. Setting to 'Uncategorized'");
     }
 
     String license = properties.get("license");
@@ -145,7 +139,7 @@ public class UserLibrary extends ContributedLibrary {
     if (types == null) {
       types = "Contributed";
     }
-    List<String> typesList = new LinkedList<String>();
+    List<String> typesList = new LinkedList<>();
     for (String type : types.split(",")) {
       typesList.add(type.trim());
     }
@@ -165,6 +159,7 @@ public class UserLibrary extends ContributedLibrary {
     res.architectures = archs;
     res.layout = layout;
     res.declaredTypes = typesList;
+    res.onGoingDevelopment = Files.exists(Paths.get(libFolder.getAbsolutePath(), Constants.LIBRARY_DEVELOPMENT_FLAG_FILE));
     return res;
   }
 
@@ -217,10 +212,6 @@ public class UserLibrary extends ContributedLibrary {
     return license;
   }
 
-  public static List<String> getCategories() {
-    return CATEGORIES;
-  }
-
   @Override
   public void setCategory(String category) {
     this.category = category;
@@ -263,6 +254,10 @@ public class UserLibrary extends ContributedLibrary {
 
   public List<String> getDeclaredTypes() {
     return declaredTypes;
+  }
+
+  public boolean onGoingDevelopment() {
+    return onGoingDevelopment;
   }
 
   protected enum LibraryLayout {

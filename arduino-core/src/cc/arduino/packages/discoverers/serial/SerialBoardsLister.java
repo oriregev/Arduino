@@ -35,15 +35,10 @@ import processing.app.BaseNoGui;
 import processing.app.Platform;
 import processing.app.Serial;
 import processing.app.debug.TargetBoard;
-import processing.app.helpers.PreferencesMap;
 
 import java.util.*;
 
-import static processing.app.I18n._;
-
 public class SerialBoardsLister extends TimerTask {
-
-  private static final int MAX_TIME_AWAITING_FOR_PACKAGES = 5000;
 
   private final SerialDiscovery serialDiscovery;
 
@@ -57,13 +52,11 @@ public class SerialBoardsLister extends TimerTask {
 
   @Override
   public void run() {
-    int sleptFor = 0;
-    while (BaseNoGui.packages == null && sleptFor <= MAX_TIME_AWAITING_FOR_PACKAGES) {
+    while (BaseNoGui.packages == null) {
       try {
         Thread.sleep(1000);
-        sleptFor += 1000;
       } catch (InterruptedException e) {
-        e.printStackTrace();
+        // noop
       }
     }
 
@@ -72,7 +65,7 @@ public class SerialBoardsLister extends TimerTask {
       return;
     }
 
-    List<BoardPort> boardPorts = new LinkedList<BoardPort>();
+    List<BoardPort> boardPorts = new LinkedList<>();
 
     List<String> ports = Serial.list();
 
@@ -90,32 +83,21 @@ public class SerialBoardsLister extends TimerTask {
 
       String label = port;
 
-      PreferencesMap prefs = new PreferencesMap();
-
       if (boardData != null) {
-        prefs.put("vid", boardData.get("vid").toString());
-        prefs.put("pid", boardData.get("pid").toString());
+        boardPort.getPrefs().put("vid", boardData.get("vid").toString());
+        boardPort.getPrefs().put("pid", boardData.get("pid").toString());
 
         TargetBoard board = (TargetBoard) boardData.get("board");
         if (board != null) {
-          String warningKey = "vid." + boardData.get("vid").toString() + ".warning";
-          String warning = board.getPreferences().get(warningKey);
-          prefs.put("warning", warning);
-
           String boardName = board.getName();
           if (boardName != null) {
-            if (warning != null) {
-              label += " (" + boardName + " - " + _(warning) + ")";
-            } else {
-              label += " (" + boardName + ")";
-            }
+            label += " (" + boardName + ")";
           }
           boardPort.setBoardName(boardName);
         }
       }
 
       boardPort.setLabel(label);
-      boardPort.setPrefs(prefs);
 
       boardPorts.add(boardPort);
     }

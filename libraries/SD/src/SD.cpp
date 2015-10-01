@@ -52,6 +52,8 @@
 
 #include "SD.h"
 
+namespace SDLib {
+
 // Used by `getNextPathComponent`
 #define MAX_COMPONENT_LEN 12 // What is max length?
 #define PATH_COMPONENT_BUFFER_LEN MAX_COMPONENT_LEN+1
@@ -450,7 +452,7 @@ File SDClass::open(const char *filepath, uint8_t mode) {
 
   // there is a special case for the Root directory since its a static dir
   if (parentdir.isRoot()) {
-    if ( ! file.open(SD.root, filepath, mode)) {
+    if ( ! file.open(root, filepath, mode)) {
       // failed to open the file :(
       return File();
     }
@@ -614,3 +616,5 @@ void File::rewindDirectory(void) {
 }
 
 SDClass SD;
+
+};

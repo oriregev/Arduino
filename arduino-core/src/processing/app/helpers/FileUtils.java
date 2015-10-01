@@ -1,10 +1,11 @@
 package processing.app.helpers;
 
+import org.apache.commons.compress.utils.IOUtils;
+
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class FileUtils {
@@ -49,12 +50,8 @@ public class FileUtils {
         fos.write(buf, 0, readBytes);
       }
     } finally {
-      if (fis != null) {
-        fis.close();
-      }
-      if (fos != null) {
-        fos.close();
-      }
+      IOUtils.closeQuietly(fis);
+      IOUtils.closeQuietly(fos);
     }
   }
 
@@ -77,7 +74,11 @@ public class FileUtils {
       return;
     }
     if (file.isDirectory()) {
-      for (File current : file.listFiles()) {
+      File[] files = file.listFiles();
+      if (files == null) {
+        return;
+      }
+      for (File current : files) {
         recursiveDelete(current);
       }
     }
@@ -85,16 +86,27 @@ public class FileUtils {
   }
 
   public static File createTempFolder() throws IOException {
-    return createTempFolderIn(new File(System.getProperty("java.io.tmpdir")));
+    return createTempFolder(new File(System.getProperty("java.io.tmpdir")));
   }
 
-  public static File createTempFolderIn(File parent) throws IOException {
-    File tmpFolder = new File(parent, "arduino_"
-                                      + new Random().nextInt(1000000));
-    if (!tmpFolder.mkdir()) {
-      throw new IOException("Unable to create temp folder " + tmpFolder);
-    }
-    return tmpFolder;
+  public static File createTempFolder(File parent) throws IOException {
+    return createTempFolder(parent, "arduino_");
+  }
+
+  public static File createTempFolder(File parent, String prefix) throws IOException {
+    return createTempFolder(parent, prefix, Integer.toString(new Random().nextInt(1000000)));
+  }
+
+  public static File createTempFolder(String prefix) throws IOException {
+    return createTempFolder(new File(System.getProperty("java.io.tmpdir")), prefix);
+  }
+
+  public static File createTempFolder(String prefix, String suffix) throws IOException {
+    return createTempFolder(new File(System.getProperty("java.io.tmpdir")), prefix, suffix);
+  }
+
+  public static File createTempFolder(File parent, String prefix, String suffix) throws IOException {
+    return Files.createDirectories(Paths.get(parent.getAbsolutePath(), prefix + suffix)).toFile();
   }
 
   //
@@ -167,13 +179,25 @@ public class FileUtils {
   }
 
   public static boolean isSCCSOrHiddenFile(File file) {
-    return file.isHidden() || file.getName().charAt(0) == '.' || (file.isDirectory() && SOURCE_CONTROL_FOLDERS.contains(file.getName()));
+    return isSCCSFolder(file) || isHiddenFile(file);
+  }
+
+  public static boolean isHiddenFile(File file) {
+    return file.isHidden() || file.getName().charAt(0) == '.';
+  }
+
+  public static boolean isSCCSFolder(File file) {
+    return file.isDirectory() && SOURCE_CONTROL_FOLDERS.contains(file.getName());
   }
 
   public static String readFileToString(File file) throws IOException {
+    return readFileToString(file, "UTF-8");
+  }
+
+  public static String readFileToString(File file, String encoding) throws IOException {
     BufferedReader reader = null;
     try {
-      reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"));
+      reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), encoding));
       StringBuilder sb = new StringBuilder();
       String line;
       while ((line = reader.readLine()) != null) {
@@ -181,37 +205,50 @@ public class FileUtils {
       }
       return sb.toString();
     } finally {
+      IOUtils.closeQuietly(reader);
+    }
+  }
+
+  public static List<String> readFileToListOfStrings(File file) throws IOException {
+    List<String> strings = new LinkedList<String>();
+    BufferedReader reader = null;
+    try {
+      reader = new BufferedReader(new FileReader(file));
+      String line;
+      while ((line = reader.readLine()) != null) {
+        line = line.replaceAll("\r", "").replaceAll("\n", "").replaceAll(" ", "");
+        strings.add(line);
+      }
+      return strings;
+    } finally {
       if (reader != null) {
-        try {
-          reader.close();
-        } catch (IOException e) {
-          // noop
-        }
+        reader.close();
       }
     }
   }
 
+
   /**
    * Returns true if the given file has any of the given extensions.
-   * @param file
-   *          File whose name to look at
-   * @param extensions
-   *          Extensions to consider (just the extension, without the
-   *          dot). Should all be lowercase, case insensitive matching
-   *          is used.
+   *
+   * @param file       File whose name to look at
+   * @param extensions Extensions to consider (just the extension, without the
+   *                   dot). Should all be lowercase, case insensitive matching
+   *                   is used.
    */
   public static boolean hasExtension(File file, String... extensions) {
     return hasExtension(file, Arrays.asList(extensions));
   }
 
   public static boolean hasExtension(File file, List<String> extensions) {
-      String pieces[] = file.getName().split("\\.");
-      if (pieces.length < 2)
-        return false;
+    String pieces[] = file.getName().split("\\.");
+    if (pieces.length < 2) {
+      return false;
+    }
 
-      String extension = pieces[pieces.length - 1];
+    String extension = pieces[pieces.length - 1];
 
-      return extensions.contains(extension.toLowerCase());
+    return extensions.contains(extension.toLowerCase());
 
   }
 
@@ -220,15 +257,12 @@ public class FileUtils {
    * extension. Excludes hidden files and folders and
    * source control folders.
    *
-   * @param folder
-   *          Folder to look into
-   * @param recursive
-   *          <b>true</b> will recursively find all files in sub-folders
-   * @param extensions
-   *          A list of file extensions to search (just the extension,
-   *          without the dot). Should all be lowercase, case
-   *          insensitive matching is used. If no extensions are
-   *          passed, all files are returned.
+   * @param folder     Folder to look into
+   * @param recursive  <b>true</b> will recursively find all files in sub-folders
+   * @param extensions A list of file extensions to search (just the extension,
+   *                   without the dot). Should all be lowercase, case
+   *                   insensitive matching is used. If no extensions are
+   *                   passed, all files are returned.
    * @return
    */
   public static List<File> listFiles(File folder, boolean recursive,
@@ -265,5 +299,12 @@ public class FileUtils {
     return result;
   }
 
+  public static boolean deleteIfExists(File file) {
+    if (file == null) {
+      return true;
+    }
+
+    return file.delete();
+  }
 
 }

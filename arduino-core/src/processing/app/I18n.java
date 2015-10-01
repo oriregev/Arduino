@@ -24,11 +24,11 @@ public class I18n {
 
   // prompt text stuff
 
-  static String PROMPT_YES;
-  static String PROMPT_NO;
-  static String PROMPT_CANCEL;
-  static String PROMPT_OK;
-  static String PROMPT_BROWSE;
+  public static String PROMPT_YES;
+  public static String PROMPT_NO;
+  public static String PROMPT_CANCEL;
+  public static String PROMPT_OK;
+  public static String PROMPT_BROWSE;
 
   static protected void init(String language) throws MissingResourceException {
     String[] languageParts = language.split("_");
@@ -43,14 +43,19 @@ public class I18n {
     // there might be a null pointer exception ... most likely will never happen but the jvm gets mad
     Locale.setDefault(locale);
     i18n = ResourceBundle.getBundle("processing.app.i18n.Resources", Locale.getDefault());
-    PROMPT_YES = _("Yes");
-    PROMPT_NO = _("No");
-    PROMPT_CANCEL = _("Cancel");
-    PROMPT_OK = _("OK");
-    PROMPT_BROWSE = _("Browse");
+    PROMPT_YES = tr("Yes");
+    PROMPT_NO = tr("No");
+    PROMPT_CANCEL = tr("Cancel");
+    PROMPT_OK = tr("OK");
+    PROMPT_BROWSE = tr("Browse");
   }
 
+  @Deprecated
   public static String _(String s) {
+    return tr(s);
+  }
+
+  public static String tr(String s) {
     String res;
     try {
       if (i18n == null)
@@ -87,10 +92,10 @@ public class I18n {
    */
   protected static void unusedStrings() {
     // These phrases are defined in the "platform.txt".
-    _("Arduino AVR Boards");
-    _("Arduino ARM (32-bits) Boards");
+    tr("Arduino AVR Boards");
+    tr("Arduino ARM (32-bits) Boards");
 
     // This word is defined in the "boards.txt".
-    _("Processor");
+    tr("Processor");
   }
 }

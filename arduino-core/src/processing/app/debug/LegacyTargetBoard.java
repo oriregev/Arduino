@@ -20,7 +20,7 @@
  */
 package processing.app.debug;
 
-import static processing.app.I18n._;
+import static processing.app.I18n.tr;
 import static processing.app.I18n.format;
 
 import java.util.LinkedHashMap;
@@ -58,8 +58,8 @@ public class LegacyTargetBoard implements TargetBoard {
       String board = containerPlatform.getId() + "_" + id;
       board = board.toUpperCase();
       prefs.put("build.board", board);
-      System.out
-          .println(format(_("Board {0}:{1}:{2} doesn''t define a ''build.board'' preference. Auto-set to: {3}"),
+      System.err
+          .println(format(tr("Board {0}:{1}:{2} doesn''t define a ''build.board'' preference. Auto-set to: {3}"),
                           containerPlatform.getContainerPackage().getId(),
                           containerPlatform.getId(), id, board));
     }

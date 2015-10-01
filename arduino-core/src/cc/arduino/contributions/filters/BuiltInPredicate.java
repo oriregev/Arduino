@@ -29,13 +29,14 @@
 
 package cc.arduino.contributions.filters;
 
-import cc.arduino.contributions.packages.DownloadableContribution;
-import com.google.common.base.Predicate;
+import cc.arduino.contributions.DownloadableContribution;
+
+import java.util.function.Predicate;
 
 public class BuiltInPredicate implements Predicate<DownloadableContribution> {
 
   @Override
-  public boolean apply(DownloadableContribution input) {
+  public boolean test(DownloadableContribution input) {
     return input.isReadOnly();
   }
 
