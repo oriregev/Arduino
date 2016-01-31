@@ -38,12 +38,14 @@ import org.fife.ui.rtextarea.Gutter;
 import org.fife.ui.rtextarea.RTextScrollPane;
 import processing.app.debug.RunnerException;
 import processing.app.forms.PasswordAuthorizationDialog;
+import processing.app.helpers.Keys;
 import processing.app.helpers.OSUtils;
 import processing.app.helpers.PreferencesMapException;
 import processing.app.legacy.PApplet;
-import processing.app.syntax.PdeKeywords;
 import processing.app.syntax.ArduinoTokenMakerFactory;
+import processing.app.syntax.PdeKeywords;
 import processing.app.syntax.SketchTextArea;
+import processing.app.syntax.SketchTextAreaEditorKit;
 import processing.app.tools.DiscourseFormat;
 import processing.app.tools.MenuScroller;
 import processing.app.tools.Tool;
@@ -84,7 +86,7 @@ import static processing.app.I18n.tr;
 @SuppressWarnings("serial")
 public class Editor extends JFrame implements RunnerListener {
 
-  public static final int MAX_TIME_AWAITING_FOR_RESUMING_SERIAL_MONITOR = 5000;
+  public static final int MAX_TIME_AWAITING_FOR_RESUMING_SERIAL_MONITOR = 10000;
 
   private final Platform platform;
   private JMenu recentSketchesMenu;
@@ -312,6 +314,12 @@ public class Editor extends JFrame implements RunnerListener {
     // to fix ugliness.. normally macosx java 1.3 puts an
     // ugly white border around this object, so turn it off.
     splitPane.setBorder(null);
+    // By default, the split pane binds Ctrl-Tab and Ctrl-Shift-Tab for changing
+    // focus. Since we do not use that, but want to use these shortcuts for
+    // switching tabs, remove the bindings from the split pane. This allows the
+    // events to bubble up and be handled by the EditorHeader.
+    Keys.killBinding(splitPane, Keys.ctrl(KeyEvent.VK_TAB));
+    Keys.killBinding(splitPane, Keys.ctrlShift(KeyEvent.VK_TAB));
 
     // the default size on windows is too small and kinda ugly
     int dividerSize = PreferencesData.getInteger("editor.divider.size");
@@ -1033,7 +1041,6 @@ public class Editor extends JFrame implements RunnerListener {
     textArea.setAntiAliasingEnabled(PreferencesData.getBoolean("editor.antialias"));
     textArea.setTabsEmulated(PreferencesData.getBoolean("editor.tabs.expand"));
     textArea.setTabSize(PreferencesData.getInteger("editor.tabs.size"));
-    textArea.setEditorListener(new EditorListener(this));
     textArea.addHyperlinkListener(new HyperlinkListener() {
       @Override
       public void hyperlinkUpdate(HyperlinkEvent hyperlinkEvent) {
@@ -1866,28 +1873,8 @@ public class Editor extends JFrame implements RunnerListener {
 
   private void handleIndentOutdent(boolean indent) {
     if (indent) {
-
-      int caretPosition = textarea.getCaretPosition();
-      boolean noSelec = !textarea.isSelectionActive();
-
-      // if no selection, focus on first char.
-      if (noSelec) {
-        try {
-          int line = textarea.getCaretLineNumber();
-          int startOffset = textarea.getLineStartOffset(line);
-          textarea.setCaretPosition(startOffset);
-        } catch (BadLocationException e) {
-        }
-      }
-
-      // Insert Tab or Spaces..
-      Action action = textarea.getActionMap().get(RSyntaxTextAreaEditorKit.insertTabAction);
+      Action action = textarea.getActionMap().get(SketchTextAreaEditorKit.rtaIncreaseIndentAction);
       action.actionPerformed(null);
-
-      if (noSelec) {
-        textarea.setCaretPosition(caretPosition);
-      }
-
     } else {
       Action action = textarea.getActionMap().get(RSyntaxTextAreaEditorKit.rstaDecreaseIndentAction);
       action.actionPerformed(null);
@@ -2006,7 +1993,7 @@ public class Editor extends JFrame implements RunnerListener {
     @Override
     public void run() {
       try {
-        textarea.removeAllLineHighlights();
+        removeAllLineHighlights();
         sketch.prepare();
         sketch.build(verbose, saveHex);
         statusNotice(tr("Done compiling."));
@@ -2022,6 +2009,15 @@ public class Editor extends JFrame implements RunnerListener {
       status.unprogress();
       toolbar.deactivateRun();
     }
+  }
+
+  public void removeAllLineHighlights() {
+    textarea.removeAllLineHighlights();
+  }
+
+  public void addLineHighlight(int line) throws BadLocationException {
+    textarea.addLineHighlight(line, new Color(1, 0, 0, 0.2f));
+    textarea.setCaretPosition(textarea.getLineStartOffset(line));
   }
 
   private class DefaultStopHandler implements Runnable {
@@ -2162,72 +2158,56 @@ public class Editor extends JFrame implements RunnerListener {
 
     File file = SketchData.checkSketchFile(sketchFile);
 
-    if (file == null)
-    {
+    if (file == null) {
       if (!fileName.endsWith(".ino") && !fileName.endsWith(".pde")) {
 
-        Base.showWarning(tr("Bad file selected"),
-                         tr("Arduino can only open its own sketches\n" +
-                           "and other files ending in .ino or .pde"), null);
+        Base.showWarning(tr("Bad file selected"), tr("Arduino can only open its own sketches\n" +
+          "and other files ending in .ino or .pde"), null);
         return false;
 
       } else {
-        String properParent =
-          fileName.substring(0, fileName.length() - 4);
+        String properParent = fileName.substring(0, fileName.length() - 4);
 
-        Object[] options = { tr("OK"), tr("Cancel") };
+        Object[] options = {tr("OK"), tr("Cancel")};
         String prompt = I18n.format(tr("The file \"{0}\" needs to be inside\n" +
-	                                "a sketch folder named \"{1}\".\n" +
-	                                "Create this folder, move the file, and continue?"),
-	                              fileName,
-	                              properParent);
+            "a sketch folder named \"{1}\".\n" +
+            "Create this folder, move the file, and continue?"),
+          fileName,
+          properParent);
 
-        int result = JOptionPane.showOptionDialog(this,
-                                                  prompt,
-                                                  tr("Moving"),
-                                                  JOptionPane.YES_NO_OPTION,
-                                                  JOptionPane.QUESTION_MESSAGE,
-                                                  null,
-                                                  options,
-                                                  options[0]);
+        int result = JOptionPane.showOptionDialog(this, prompt, tr("Moving"), JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
 
-        if (result == JOptionPane.YES_OPTION) {
-          // create properly named folder
-          File properFolder = new File(sketchFile.getParent(), properParent);
-          if (properFolder.exists()) {
-            Base.showWarning(tr("Error"),
-                             I18n.format(
-                               tr("A folder named \"{0}\" already exists. " +
-                                 "Can't open sketch."),
-                               properParent
-                             ),
-			   null);
-            return false;
-          }
-          if (!properFolder.mkdirs()) {
-            //throw new IOException("Couldn't create sketch folder");
-            Base.showWarning(tr("Error"),
-                             tr("Could not create the sketch folder."), null);
-            return false;
-          }
-          // copy the sketch inside
-          File properPdeFile = new File(properFolder, sketchFile.getName());
-          try {
-            Base.copyFile(sketchFile, properPdeFile);
-          } catch (IOException e) {
-            Base.showWarning(tr("Error"), tr("Could not copy to a proper location."), e);
-            return false;
-          }
-
-          // remove the original file, so user doesn't get confused
-          sketchFile.delete();
-
-          // update with the new path
-          file = properPdeFile;
-
-        } else if (result == JOptionPane.NO_OPTION) {
+        if (result != JOptionPane.YES_OPTION) {
           return false;
         }
+
+        // create properly named folder
+        File properFolder = new File(sketchFile.getParent(), properParent);
+        if (properFolder.exists()) {
+          Base.showWarning(tr("Error"), I18n.format(tr("A folder named \"{0}\" already exists. " +
+            "Can't open sketch."), properParent), null);
+          return false;
+        }
+        if (!properFolder.mkdirs()) {
+          //throw new IOException("Couldn't create sketch folder");
+          Base.showWarning(tr("Error"), tr("Could not create the sketch folder."), null);
+          return false;
+        }
+        // copy the sketch inside
+        File properPdeFile = new File(properFolder, sketchFile.getName());
+        try {
+          Base.copyFile(sketchFile, properPdeFile);
+        } catch (IOException e) {
+          Base.showWarning(tr("Error"), tr("Could not copy to a proper location."), e);
+          return false;
+        }
+
+        // remove the original file, so user doesn't get confused
+        sketchFile.delete();
+
+        // update with the new path
+        file = properPdeFile;
+
       }
     }
 
@@ -2244,12 +2224,6 @@ public class Editor extends JFrame implements RunnerListener {
 
     // opening was successful
     return true;
-
-//    } catch (Exception e) {
-//      e.printStackTrace();
-//      statusError(e);
-//      return false;
-//    }
   }
 
   private void updateTitle() {
@@ -2276,7 +2250,7 @@ public class Editor extends JFrame implements RunnerListener {
   public boolean handleSave(boolean immediately) {
     //stopRunner();
     handleStop();  // 0136
-    textarea.removeAllLineHighlights();
+    removeAllLineHighlights();
 
     if (untitled) {
       return handleSaveAs();
@@ -2430,7 +2404,7 @@ public class Editor extends JFrame implements RunnerListener {
     public void run() {
 
       try {
-        textarea.removeAllLineHighlights();
+        removeAllLineHighlights();
         if (serialMonitor != null) {
           serialMonitor.suspend();
         }
@@ -2575,7 +2549,7 @@ public class Editor extends JFrame implements RunnerListener {
       if(serialPlotter.isClosed()) {
         serialPlotter = null;
       } else {
-        statusError(I18n.format("Serial monitor not available while plotter is open"));
+        statusError(tr("Serial monitor not available while plotter is open"));
         return;
       }
     }
@@ -2604,7 +2578,7 @@ public class Editor extends JFrame implements RunnerListener {
     BoardPort port = Base.getDiscoveryManager().find(PreferencesData.get("serial.port"));
 
     if (port == null) {
-      statusError(I18n.format("Board at {0} is not available", PreferencesData.get("serial.port")));
+      statusError(I18n.format(tr("Board at {0} is not available"), PreferencesData.get("serial.port")));
       return;
     }
 
@@ -2672,7 +2646,7 @@ public class Editor extends JFrame implements RunnerListener {
       if(serialMonitor.isClosed()) {
         serialMonitor = null;
       } else {
-        statusError(I18n.format("Plotter not available while serial monitor is open"));
+        statusError(tr("Plotter not available while serial monitor is open"));
         return;
       }
     }
@@ -2700,7 +2674,7 @@ public class Editor extends JFrame implements RunnerListener {
     BoardPort port = Base.getDiscoveryManager().find(PreferencesData.get("serial.port"));
 
     if (port == null) {
-      statusError(I18n.format("Board at {0} is not available", PreferencesData.get("serial.port")));
+      statusError(I18n.format(tr("Board at {0} is not available"), PreferencesData.get("serial.port")));
       return;
     }
 
@@ -2761,28 +2735,28 @@ public class Editor extends JFrame implements RunnerListener {
   private void handleBurnBootloader() {
     console.clear();
     statusNotice(tr("Burning bootloader to I/O Board (this may take a minute)..."));
-    SwingUtilities.invokeLater(new Runnable() {
-      public void run() {
-        try {
-          Uploader uploader = new SerialUploader();
-          if (uploader.burnBootloader()) {
-            statusNotice(tr("Done burning bootloader."));
-          } else {
-            statusError(tr("Error while burning bootloader."));
-            // error message will already be visible
-          }
-        } catch (PreferencesMapException e) {
-          statusError(I18n.format(
-                      tr("Error while burning bootloader: missing '{0}' configuration parameter"),
-                      e.getMessage()));
-        } catch (RunnerException e) {
-          statusError(e.getMessage());
-        } catch (Exception e) {
-          statusError(tr("Error while burning bootloader."));
-          e.printStackTrace();
+    new Thread(() -> {
+      try {
+        Uploader uploader = new SerialUploader();
+        if (uploader.burnBootloader()) {
+          SwingUtilities.invokeLater(() -> statusNotice(tr("Done burning bootloader.")));
+        } else {
+          SwingUtilities.invokeLater(() -> statusError(tr("Error while burning bootloader.")));
+          // error message will already be visible
         }
+      } catch (PreferencesMapException e) {
+        SwingUtilities.invokeLater(() -> {
+          statusError(I18n.format(
+            tr("Error while burning bootloader: missing '{0}' configuration parameter"),
+            e.getMessage()));
+        });
+      } catch (RunnerException e) {
+        SwingUtilities.invokeLater(() -> statusError(e.getMessage()));
+      } catch (Exception e) {
+        SwingUtilities.invokeLater(() -> statusError(tr("Error while burning bootloader.")));
+        e.printStackTrace();
       }
-    });
+    }).start();
   }
 
 
@@ -2876,8 +2850,7 @@ public class Editor extends JFrame implements RunnerListener {
           System.err.println(I18n.format(tr("Bad error line: {0}"), line));
         } else {
           try {
-             textarea.addLineHighlight(line, new Color(1, 0, 0, 0.2f));
-            textarea.setCaretPosition(textarea.getLineStartOffset(line));
+            addLineHighlight(line);
           } catch (BadLocationException e1) {
             e1.printStackTrace();
           }

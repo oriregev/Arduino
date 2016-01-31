@@ -132,11 +132,11 @@ void delay(unsigned long ms) {
 #else
 void delay(unsigned long ms)
 {
-	uint16_t start = (uint16_t)micros();
+	uint32_t start = micros();
 
 	while (ms > 0) {
 		yield();
-		if (((uint16_t)micros() - start) >= 1000) {
+		while ( ms > 0 && (micros() - start) >= 1000) {
 			ms--;
 			start += 1000;
 		}

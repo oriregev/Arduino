@@ -26,8 +26,12 @@ import processing.app.helpers.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static processing.app.I18n.tr;
 
@@ -47,11 +51,6 @@ public class SketchCode {
   private String program;
 
   private boolean modified;
-
-  /**
-   * where this code starts relative to the concat'd code
-   */
-  private int preprocOffset;
 
   private Object metadata;
 
@@ -91,34 +90,37 @@ public class SketchCode {
   }
 
 
-  protected boolean deleteFile(File tempBuildFolder) {
+  protected boolean deleteFile(Path tempBuildFolder) throws IOException {
     if (!file.delete()) {
       return false;
     }
 
-    if (!deleteCompiledFilesFrom(tempBuildFolder)) {
-      return false;
-    }
+    List<Path> tempBuildFolders = Stream.of(tempBuildFolder, tempBuildFolder.resolve("sketch"))
+        .filter(path -> Files.exists(path)).collect(Collectors.toList());
 
-    if (!deleteCompiledFilesFrom(new File(tempBuildFolder, "sketch"))) {
-      return false;
+    for (Path folder : tempBuildFolders) {
+      if (!deleteCompiledFilesFrom(folder)) {
+        return false;
+      }
     }
 
     return true;
   }
 
-  private boolean deleteCompiledFilesFrom(File tempBuildFolder) {
-    File[] compiledFiles = tempBuildFolder.listFiles(pathname -> {
-      return pathname.getName().startsWith(getFileName());
-    });
-    for (File compiledFile : compiledFiles) {
-      if (!compiledFile.delete()) {
+  private boolean deleteCompiledFilesFrom(Path tempBuildFolder) throws IOException {
+    List<Path> compiledFiles = Files.list(tempBuildFolder)
+      .filter(pathname -> pathname.getFileName().toString().startsWith(getFileName()))
+      .collect(Collectors.toList());
+
+    for (Path compiledFile : compiledFiles) {
+      try {
+        Files.delete(compiledFile);
+      } catch (IOException e) {
         return false;
       }
     }
     return true;
   }
-
 
   protected boolean renameTo(File what) {
     boolean success = file.renameTo(what);
@@ -181,16 +183,6 @@ public class SketchCode {
   }
 
 
-  public void setPreprocOffset(int preprocOffset) {
-    this.preprocOffset = preprocOffset;
-  }
-
-
-  public void addPreprocOffset(int extra) {
-    preprocOffset += extra;
-  }
-
-
   /**
    * Load this piece of code from a file.
    */
@@ -204,10 +196,10 @@ public class SketchCode {
     if (program.indexOf('\uFFFD') != -1) {
       System.err.println(
         I18n.format(
-          tr("\"{0}\" contains unrecognized characters." +
-            "If this code was created with an older version of Arduino," +
-            "you may need to use Tools -> Fix Encoding & Reload to update" +
-            "the sketch to use UTF-8 encoding. If not, you may need to" +
+          tr("\"{0}\" contains unrecognized characters. " +
+            "If this code was created with an older version of Arduino, " +
+            "you may need to use Tools -> Fix Encoding & Reload to update " +
+            "the sketch to use UTF-8 encoding. If not, you may need to " +
             "delete the bad characters to get rid of this warning."),
           file.getName()
         )

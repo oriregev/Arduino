@@ -36,7 +36,7 @@ public class EditorConsole extends JScrollPane {
   private static ConsoleOutputStream out;
   private static ConsoleOutputStream err;
 
-  public static synchronized void init(SimpleAttributeSet outStyle, PrintStream outStream, SimpleAttributeSet errStyle, PrintStream errStream) {
+  private static synchronized void init(SimpleAttributeSet outStyle, PrintStream outStream, SimpleAttributeSet errStyle, PrintStream errStream) {
     if (out != null) {
       return;
     }
@@ -63,6 +63,7 @@ public class EditorConsole extends JScrollPane {
     consoleTextPane.setEditable(false);
     DefaultCaret caret = (DefaultCaret) consoleTextPane.getCaret();
     caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
+    consoleTextPane.setFocusTraversalKeysEnabled(false);
 
     Color backgroundColour = Theme.getColor("console.color");
     consoleTextPane.setBackground(backgroundColour);
@@ -116,11 +117,23 @@ public class EditorConsole extends JScrollPane {
     }
   }
 
+  public void scrollDown() {
+    getHorizontalScrollBar().setValue(0);
+    getVerticalScrollBar().setValue(getVerticalScrollBar().getMaximum());
+  }
+
+  public boolean isEmpty() {
+    return document.getLength() == 0;
+  }
+
+  public void insertString(String line, SimpleAttributeSet attributes) throws BadLocationException {
+    line = line.replace("\r\n", "\n").replace("\r", "\n");
+    int offset = document.getLength();
+    document.insertString(offset, line, attributes);
+  }
+
   public String getText() {
     return consoleTextPane.getText().trim();
   }
 
-  public Document getDocument() {
-    return document;
-  }
 }

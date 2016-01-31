@@ -148,12 +148,7 @@ int WiFiClient::peek() {
 }
 
 void WiFiClient::flush() {
-  while (available()) {
-#ifdef VERILITE_WDT_MODS
-    wdt_reset(); // watchdog reset
-#endif
-    read();
-  }
+  // TODO: a real check to ensure transmission has been completed
 }
 
 void WiFiClient::stop() {

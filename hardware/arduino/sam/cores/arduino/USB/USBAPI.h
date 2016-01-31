@@ -23,9 +23,6 @@
 
 #include "RingBuffer.h"
 #include "Stream.h"
-#include <cstddef>
-
-#define min(a, b)   Min(a, b)
 
 //================================================================================
 //================================================================================
@@ -65,6 +62,23 @@ public:
 	virtual size_t write(const uint8_t *buffer, size_t size);
 	using Print::write; // pull in write(str) from Print
 	operator bool();
+
+	// This method allows processing "SEND_BREAK" requests sent by
+	// the USB host. Those requests indicate that the host wants to
+	// send a BREAK signal and are accompanied by a single uint16_t
+	// value, specifying the duration of the break. The value 0
+	// means to end any current break, while the value 0xffff means
+	// to start an indefinite break.
+	// readBreak() will return the value of the most recent break
+	// request, but will return it at most once, returning -1 when
+	// readBreak() is called again (until another break request is
+	// received, which is again returned once).
+	// This also mean that if two break requests are received
+	// without readBreak() being called in between, the value of the
+	// first request is lost.
+	// Note that the value returned is a long, so it can return
+	// 0-0xffff as well as -1.
+	int32_t readBreak();
 
 	// These return the settings specified by the USB host for the
 	// serial port. These aren't really used, but are offered here
@@ -131,7 +145,7 @@ bool	CDC_Setup(USBSetup& setup);
 void USBD_InitControl(int end);
 int USBD_SendControl(uint8_t flags, const void* d, uint32_t len);
 int USBD_RecvControl(void* d, uint32_t len);
-int USBD_SendInterfaces(void);
+uint8_t USBD_SendInterfaces(void);
 bool USBD_ClassInterfaceRequest(USBSetup& setup);
 
 
