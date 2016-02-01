@@ -110,18 +110,18 @@ unsigned long micros() {
 #ifdef VERILITE_WDT_MODS
 void wdt_delay_internal(unsigned long ms)
 {
-	uint16_t start = (uint16_t)micros();
+	uint32_t start = micros();
 
 	while (ms > 0) {
 		yield();
-		if (((uint16_t)micros() - start) >= 1000) {
+		while ( ms > 0 && (micros() - start) >= 1000) {
 			ms--;
 			start += 1000;
 		}
 	}
 }
 void delay(unsigned long ms) {
-    unsigned long i;
+	unsigned long i;
     for (i=0; i < (ms/100); i++) {
         wdt_reset();
         wdt_delay_internal(100);
