@@ -24,6 +24,7 @@
 package processing.app;
 
 import processing.app.helpers.OSUtils;
+import cc.arduino.CompilerProgressListener;
 
 import javax.swing.*;
 import java.awt.*;
@@ -31,9 +32,10 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
 
 import static processing.app.I18n.tr;
-
+import static processing.app.Theme.scale;
 
 /**
  * Panel just below the editing area that contains status messages.
@@ -67,6 +69,10 @@ public class EditorStatus extends JPanel {
     FGCOLOR[5] = Theme.getColor("status.notice.fgcolor");
   }
 
+  // value for the size bars, buttons, etc
+  // TODO: Should be a Theme value?
+  static final int GRID_SIZE = 33;
+
   private final Editor editor;
   private final Font font;
 
@@ -84,12 +90,16 @@ public class EditorStatus extends JPanel {
   private JTextField editField;
   private JProgressBar progressBar;
   private JButton copyErrorButton;
+  
+  private ArrayList<CompilerProgressListener> compilerProgressListeners;
 
   public EditorStatus(Editor editor) {
     this.editor = editor;
     this.message = NO_MESSAGE;
     this.mode = NOTICE;
     this.font = Theme.getFont("status.font");
+    this.compilerProgressListeners = new ArrayList<>();
+    this.compilerProgressListeners.add(this::progressUpdate);
     initialize();
   }
 
@@ -143,7 +153,7 @@ public class EditorStatus extends JPanel {
     editField.setVisible(true);
     editField.setText(dflt);
     editField.selectAll();
-    editField.requestFocus();
+    editField.requestFocusInWindow();
 
     repaint();
   }
@@ -215,15 +225,15 @@ public class EditorStatus extends JPanel {
       offscreen = createImage(imageW, imageH);
     }
 
-    Graphics graphics = offscreen.getGraphics();
-    graphics.setColor(BGCOLOR[mode]);
-    graphics.fillRect(0, 0, imageW, imageH);
-    graphics.setColor(FGCOLOR[mode]);
+    Graphics2D g = Theme.setupGraphics2D(offscreen.getGraphics());
+    g.setColor(BGCOLOR[mode]);
+    g.fillRect(0, 0, imageW, imageH);
+    g.setColor(FGCOLOR[mode]);
 
-    graphics.setFont(font); // needs to be set each time on osx
-    int ascent = graphics.getFontMetrics().getAscent();
+    g.setFont(font); // needs to be set each time on osx
+    int ascent = g.getFontMetrics().getAscent();
     assert message != null;
-    graphics.drawString(message, Preferences.GUI_SMALL, (sizeH + ascent) / 2);
+    g.drawString(message, Preferences.GUI_SMALL, (sizeH + ascent) / 2);
 
     screen.drawImage(offscreen, 0, 0, null);
   }
@@ -242,7 +252,7 @@ public class EditorStatus extends JPanel {
       // answering to rename/new code question
       if (mode == EDIT) {  // this if() isn't (shouldn't be?) necessary
         String answer = editField.getText();
-        editor.getSketch().nameCode(answer);
+        editor.getSketchController().nameCode(answer);
         unedit();
       }
     });
@@ -281,7 +291,7 @@ public class EditorStatus extends JPanel {
 
         if (c == KeyEvent.VK_ENTER) {  // accept the input
           String answer = editField.getText();
-          editor.getSketch().nameCode(answer);
+          editor.getSketchController().nameCode(answer);
           unedit();
           event.consume();
 
@@ -395,15 +405,23 @@ public class EditorStatus extends JPanel {
   }
 
   public Dimension getMinimumSize() {
-    return new Dimension(300, Preferences.GRID_SIZE);
+    return scale(new Dimension(300, GRID_SIZE));
   }
 
   public Dimension getMaximumSize() {
-    return new Dimension(3000, Preferences.GRID_SIZE);
+    return scale(new Dimension(3000, GRID_SIZE));
   }
 
   public boolean isErr() {
     return mode == ERR;
+  }
+  
+  public void addCompilerProgressListener(CompilerProgressListener listener){
+    compilerProgressListeners.add(listener);
+  }
+  
+  public ArrayList<CompilerProgressListener> getCompilerProgressListeners(){
+    return compilerProgressListeners;
   }
 
 }
